@@ -1,0 +1,813 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>My Task Manager</title>
+
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            padding: 40px 20px;
+            font-family: Arial, sans-serif;
+            background: #f1f5f9;
+            color: #243247;
+        }
+
+        .container {
+            max-width: 850px;
+            margin: 45px auto;
+            padding: 36px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 12px 35px rgba(15, 23, 42, .09);
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            text-align: center;
+            color: #2563eb;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #64748b;
+            margin: 0 0 30px;
+        }
+
+        .add-form {
+            display: grid;
+            grid-template-columns: 1fr 190px auto;
+            gap: 12px;
+        }
+
+        input, button {
+            font: inherit;
+            border-radius: 9px;
+        }
+
+        input {
+            width: 100%;
+            min-width: 0;
+            padding: 14px 15px;
+            border: 1px solid #cbd5e1;
+            color: #243247;
+            background: white;
+        }
+
+        input:focus {
+            outline: 2px solid #bfdbfe;
+            border-color: #3b82f6;
+        }
+
+        button {
+            border: 0;
+            padding: 12px 16px;
+            color: white;
+            cursor: pointer;
+            transition: opacity .15s;
+        }
+
+        button:hover {
+            opacity: .88;
+        }
+
+        button:disabled {
+            opacity: .5;
+            cursor: wait;
+        }
+
+        .add-btn {
+            background: #2563eb;
+        }
+
+        h2 {
+            margin: 32px 0 15px;
+            font-size: 21px;
+        }
+
+        .task-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .task {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 17px;
+            background: #f8fafc;
+            border: 1px solid #dbe4ef;
+            border-radius: 12px;
+        }
+
+        .task-info {
+            min-width: 0;
+        }
+
+        .task-title {
+            font-size: 17px;
+            overflow-wrap: anywhere;
+        }
+
+        .task.completed .task-title {
+            color: #94a3b8;
+            text-decoration: line-through;
+        }
+
+        .meta {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+
+        .pill {
+            display: inline-block;
+            border-radius: 20px;
+            padding: 5px 9px;
+            font-size: 12px;
+            background: #e2e8f0;
+            color: #475569;
+        }
+
+        .pill.overdue {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .pill.today {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+            flex-shrink: 0;
+        }
+
+        .edit {
+            background: #f59e0b;
+        }
+
+        .done {
+            background: #16a34a;
+        }
+
+        .delete {
+            background: #dc2626;
+        }
+
+        .empty {
+            text-align: center;
+            color: #64748b;
+            padding: 28px;
+        }
+
+        .count {
+            margin-top: 22px;
+            text-align: center;
+            color: #64748b;
+        }
+
+        .error {
+            color: #b91c1c;
+            margin-top: 12px;
+        }
+
+        @media (max-width: 650px) {
+
+            .container {
+                margin: 10px auto;
+                padding: 22px 16px;
+            }
+
+            .add-form {
+                grid-template-columns: 1fr;
+            }
+
+            .task {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .actions {
+                width: 100%;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+    <main class="container">
+
+        <h1>My Task Manager</h1>
+
+        <p class="subtitle">
+            Organize your daily tasks and never miss a deadline!
+        </p>
+
+
+        <!-- Add Task Form -->
+
+        <form class="add-form" id="task-form">
+
+            <input
+                id="task-title"
+                type="text"
+                maxlength="250"
+                placeholder="Enter your task..."
+                required
+            >
+
+            <!-- NEW DEADLINE INPUT -->
+
+            <input
+                id="task-deadline"
+                type="date"
+                aria-label="Task deadline"
+            >
+
+            <button class="add-btn" type="submit">
+                Add Task
+            </button>
+
+        </form>
+
+
+        <p id="error" class="error" role="alert"></p>
+
+
+        <h2>My Tasks</h2>
+
+
+        <!-- Tasks will be displayed here -->
+
+        <section
+            id="task-list"
+            class="task-list"
+            aria-live="polite"
+        >
+
+            <p class="empty">
+                Loading tasks...
+            </p>
+
+        </section>
+
+
+        <p id="task-count" class="count"></p>
+
+    </main>
+
+
+    <script>
+
+        const API_URL = "/tasks/";
+
+
+        // Display error messages
+
+        function showError(message = "") {
+
+            document.getElementById("error").textContent = message;
+
+        }
+
+
+        // Format deadline date
+
+        function formatDate(dateString) {
+
+            const [year, month, day] =
+                dateString.split("-").map(Number);
+
+            return new Date(year, month - 1, day)
+                .toLocaleDateString(
+                    undefined,
+                    {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric"
+                    }
+                );
+
+        }
+
+
+        // Check deadline status
+
+        function deadlineLabel(task) {
+
+            if (!task.due_date) {
+                return "No deadline";
+            }
+
+            const today = new Date();
+
+            today.setHours(0, 0, 0, 0);
+
+            const [year, month, day] =
+                task.due_date.split("-").map(Number);
+
+            const due = new Date(year, month - 1, day);
+
+            const label =
+                `Due: ${formatDate(task.due_date)}`;
+
+
+            if (!task.completed && due < today) {
+
+                return `${label} · Overdue`;
+
+            }
+
+
+            if (
+                !task.completed &&
+                due.getTime() === today.getTime()
+            ) {
+
+                return `${label} · Due today`;
+
+            }
+
+
+            return label;
+
+        }
+
+
+        // Set deadline colors
+
+        function deadlineClass(task) {
+
+            if (!task.due_date || task.completed) {
+                return "pill";
+            }
+
+            const today = new Date();
+
+            today.setHours(0, 0, 0, 0);
+
+            const [year, month, day] =
+                task.due_date.split("-").map(Number);
+
+            const due = new Date(year, month - 1, day);
+
+
+            if (due < today) {
+                return "pill overdue";
+            }
+
+
+            if (due.getTime() === today.getTime()) {
+                return "pill today";
+            }
+
+
+            return "pill";
+
+        }
+
+
+        // READ - Get all tasks
+
+        async function loadTasks() {
+
+            showError();
+
+            const list =
+                document.getElementById("task-list");
+
+            try {
+
+                const response = await fetch(API_URL);
+
+                if (!response.ok) {
+                    throw new Error("Could not load tasks.");
+                }
+
+                const tasks = await response.json();
+
+
+                list.replaceChildren();
+
+
+                if (tasks.length === 0) {
+
+                    const empty = document.createElement("p");
+
+                    empty.className = "empty";
+
+                    empty.textContent =
+                        "No tasks yet. Add your first task above!";
+
+                    list.appendChild(empty);
+
+                }
+
+
+                tasks.forEach(task => {
+
+                    const card =
+                        document.createElement("article");
+
+                    card.className =
+                        `task${task.completed ? " completed" : ""}`;
+
+
+                    // Task information
+
+                    const info =
+                        document.createElement("div");
+
+                    info.className = "task-info";
+
+
+                    const title =
+                        document.createElement("div");
+
+                    title.className = "task-title";
+
+                    title.textContent = task.title;
+
+
+                    // Deadline information
+
+                    const meta =
+                        document.createElement("div");
+
+                    meta.className = "meta";
+
+
+                    const deadline =
+                        document.createElement("span");
+
+                    deadline.className =
+                        deadlineClass(task);
+
+                    deadline.textContent =
+                        deadlineLabel(task);
+
+
+                    meta.appendChild(deadline);
+
+                    info.append(title, meta);
+
+
+                    // Action buttons
+
+                    const actions =
+                        document.createElement("div");
+
+                    actions.className = "actions";
+
+
+                    // EDIT BUTTON
+
+                    const editButton =
+                        document.createElement("button");
+
+                    editButton.className = "edit";
+
+                    editButton.textContent = "Edit";
+
+                    editButton.onclick =
+                        () => editTask(task);
+
+
+                    // DONE / UNDO BUTTON
+
+                    const doneButton =
+                        document.createElement("button");
+
+                    doneButton.className = "done";
+
+                    doneButton.textContent =
+                        task.completed ? "Undo" : "Done";
+
+                    doneButton.onclick =
+                        () => updateTask(task.id, {
+                            completed: !task.completed
+                        });
+
+
+                    // DELETE BUTTON
+
+                    const deleteButton =
+                        document.createElement("button");
+
+                    deleteButton.className = "delete";
+
+                    deleteButton.textContent = "Delete";
+
+                    deleteButton.onclick =
+                        () => deleteTask(task.id);
+
+
+                    actions.append(
+                        editButton,
+                        doneButton,
+                        deleteButton
+                    );
+
+
+                    card.append(info, actions);
+
+                    list.appendChild(card);
+
+                });
+
+
+                document.getElementById("task-count")
+                    .textContent =
+                    `${tasks.length} task(s)`;
+
+
+            } catch (error) {
+
+                showError(
+                    error.message || "Something went wrong."
+                );
+
+                list.innerHTML =
+                    '<p class="empty">Unable to load tasks.</p>';
+
+            }
+
+        }
+
+
+        // CREATE - Add a new task
+
+        document.getElementById("task-form")
+            .addEventListener("submit", async event => {
+
+                event.preventDefault();
+
+                showError();
+
+
+                const titleInput =
+                    document.getElementById("task-title");
+
+                const dateInput =
+                    document.getElementById("task-deadline");
+
+
+                const title = titleInput.value.trim();
+
+
+                if (!title) {
+
+                    return showError("Please enter a task.");
+
+                }
+
+
+                // Include the deadline in request body
+
+                const payload = {
+
+                    title: title,
+
+                    due_date: dateInput.value || null
+
+                };
+
+
+                try {
+
+                    const response = await fetch(API_URL, {
+
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+
+                        body: JSON.stringify(payload)
+
+                    });
+
+
+                    if (!response.ok) {
+
+                        const data = await response.json();
+
+                        throw new Error(
+                            data.detail || "Could not create task."
+                        );
+
+                    }
+
+
+                    // Clear input fields
+
+                    titleInput.value = "";
+
+                    dateInput.value = "";
+
+
+                    // Refresh task list
+
+                    await loadTasks();
+
+
+                } catch (error) {
+
+                    showError(error.message);
+
+                }
+
+            });
+
+
+        // UPDATE - Update task details
+
+        async function updateTask(taskId, changes) {
+
+            showError();
+
+            try {
+
+                const response = await fetch(
+                    `${API_URL}${taskId}`,
+                    {
+
+                        method: "PUT",
+
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+
+                        body: JSON.stringify(changes)
+
+                    }
+                );
+
+
+                if (!response.ok) {
+
+                    const data = await response.json();
+
+                    throw new Error(
+                        data.detail || "Could not update task."
+                    );
+
+                }
+
+
+                await loadTasks();
+
+
+            } catch (error) {
+
+                showError(error.message);
+
+            }
+
+        }
+
+
+        // EDIT - Edit title and deadline
+
+        async function editTask(task) {
+
+            const newTitle = prompt(
+                "Edit task title:",
+                task.title
+            );
+
+
+            if (newTitle === null) {
+                return;
+            }
+
+
+            if (!newTitle.trim()) {
+
+                return showError(
+                    "Task title cannot be empty."
+                );
+
+            }
+
+
+            const newDeadline = prompt(
+
+                "Enter deadline as YYYY-MM-DD, or leave blank for no deadline:",
+
+                task.due_date || ""
+
+            );
+
+
+            if (newDeadline === null) {
+                return;
+            }
+
+
+            const dateValue = newDeadline.trim();
+
+
+            if (
+                dateValue &&
+                !/^\d{4}-\d{2}-\d{2}$/.test(dateValue)
+            ) {
+
+                return showError(
+                    "Please enter the deadline in YYYY-MM-DD format."
+                );
+
+            }
+
+
+            await updateTask(task.id, {
+
+                title: newTitle.trim(),
+
+                due_date: dateValue || null
+
+            });
+
+        }
+
+
+        // DELETE - Delete a task
+
+        async function deleteTask(taskId) {
+
+            if (
+                !confirm("Are you sure you want to delete this task?")
+            ) {
+                return;
+            }
+
+            showError();
+
+
+            try {
+
+                const response = await fetch(
+                    `${API_URL}${taskId}`,
+                    {
+                        method: "DELETE"
+                    }
+                );
+
+
+                if (!response.ok) {
+
+                    const data = await response.json();
+
+                    throw new Error(
+                        data.detail || "Could not delete task."
+                    );
+
+                }
+
+
+                await loadTasks();
+
+
+            } catch (error) {
+
+                showError(error.message);
+
+            }
+
+        }
+
+
+        // Load tasks when the page opens
+
+        loadTasks();
+
+    </script>
+
+</body>
+
+</html>

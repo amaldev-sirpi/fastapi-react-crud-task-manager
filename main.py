@@ -31,8 +31,8 @@ app.add_middleware(
 Base.metadata.create_all(bind=engine)
 
 
-# Add due_date column to an existing database
-def add_due_date_column_if_needed():
+# Add task columns to an existing database
+def add_task_columns_if_needed():
 
     inspector = inspect(engine)
 
@@ -53,8 +53,29 @@ def add_due_date_column_if_needed():
                     )
                 )
 
+        if "priority" not in columns:
 
-add_due_date_column_if_needed()
+            with engine.begin() as connection:
+
+                connection.execute(
+                    text(
+                        "ALTER TABLE tasks "
+                        "ADD COLUMN priority VARCHAR(20) "
+                        "NOT NULL DEFAULT 'medium'"
+                    )
+                )
+
+        with engine.begin() as connection:
+
+            connection.execute(
+                text(
+                    "UPDATE tasks SET priority = 'medium' "
+                    "WHERE priority = 'avg'"
+                )
+            )
+
+
+add_task_columns_if_needed()
 
 
 # Display the frontend
@@ -106,6 +127,7 @@ def create_task(
     db_task = models.Task(
         title=title,
         due_date=task.due_date,
+        priority=task.priority,
         completed=False
     )
 
@@ -160,6 +182,11 @@ def update_task(
     if "due_date" in updates:
 
         db_task.due_date = updates["due_date"]
+
+    # Update task priority
+    if "priority" in updates and updates["priority"] is not None:
+
+        db_task.priority = updates["priority"]
 
     # Update completed status
     if (

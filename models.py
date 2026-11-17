@@ -28,3 +28,9 @@ class Task(Base):
         Date,
         nullable=True
     )
+
+    priority = Column(
+        String(20),
+        default="medium",
+        nullable=False
+    )

@@ -26,6 +26,8 @@ async function apiRequest(endpoint, options = {}) {
 function App() {
   const [tasks, setTasks] = useState([]);
   const [newTitle, setNewTitle] = useState("");
+  const [newDueDate, setNewDueDate] = useState("");
+  const [newPriority, setNewPriority] = useState("medium");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -33,6 +35,8 @@ function App() {
 
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState("");
+  const [editDueDate, setEditDueDate] = useState("");
+  const [editPriority, setEditPriority] = useState("medium");
 
   // Fetch tasks from FastAPI
   async function fetchTasks() {
@@ -86,10 +90,16 @@ function App() {
 
       await apiRequest("/tasks/", {
         method: "POST",
-        body: JSON.stringify({ title }),
+        body: JSON.stringify({
+          title,
+          due_date: newDueDate || null,
+          priority: newPriority,
+        }),
       });
 
       setNewTitle("");
+      setNewDueDate("");
+      setNewPriority("medium");
       await fetchTasks();
     } catch (err) {
       setError(err.message || "Could not create task.");
@@ -120,6 +130,8 @@ function App() {
   function startEditing(task) {
     setEditingId(task.id);
     setEditTitle(task.title);
+    setEditDueDate(task.due_date || "");
+    setEditPriority(task.priority || "medium");
   }
 
   // Save edited task
@@ -135,11 +147,17 @@ function App() {
 
       await apiRequest(`/tasks/${taskId}`, {
         method: "PUT",
-        body: JSON.stringify({ title }),
+        body: JSON.stringify({
+          title,
+          due_date: editDueDate || null,
+          priority: editPriority,
+        }),
       });
 
       setEditingId(null);
       setEditTitle("");
+      setEditDueDate("");
+      setEditPriority("medium");
       await fetchTasks();
     } catch (err) {
       setError(err.message || "Could not edit task.");
@@ -280,6 +298,7 @@ function App() {
 
           <form className="add-task-form" onSubmit={handleAddTask}>
             <input
+              className="task-title-input"
               type="text"
               placeholder="What needs to be done today?"
               value={newTitle}
@@ -288,9 +307,32 @@ function App() {
               required
             />
 
-            <button type="submit" disabled={saving}>
-              {saving ? "Adding..." : "+ Add Task"}
-            </button>
+            <div className="add-task-fields">
+              <label className="form-field">
+                <span>Due date</span>
+                <input
+                  type="date"
+                  value={newDueDate}
+                  onChange={(event) => setNewDueDate(event.target.value)}
+                />
+              </label>
+
+              <label className="form-field">
+                <span>Priority</span>
+                <select
+                  value={newPriority}
+                  onChange={(event) => setNewPriority(event.target.value)}
+                >
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </label>
+
+              <button type="submit" disabled={saving}>
+                {saving ? "Adding..." : "+ Add Task"}
+              </button>
+            </div>
           </form>
 
           {/* Error message */}
@@ -383,6 +425,31 @@ function App() {
                         required
                       />
 
+                      <label className="form-field">
+                        <span>Due date</span>
+                        <input
+                          type="date"
+                          value={editDueDate}
+                          onChange={(event) =>
+                            setEditDueDate(event.target.value)
+                          }
+                        />
+                      </label>
+
+                      <label className="form-field">
+                        <span>Priority</span>
+                        <select
+                          value={editPriority}
+                          onChange={(event) =>
+                            setEditPriority(event.target.value)
+                          }
+                        >
+                          <option value="high">High</option>
+                          <option value="medium">Medium</option>
+                          <option value="low">Low</option>
+                        </select>
+                      </label>
+
                       <button type="submit" className="save-button">
                         Save
                       </button>
@@ -409,6 +476,21 @@ function App() {
                         <span className="task-status">
                           {task.completed ? "Completed" : "In progress"}
                         </span>
+                        <div className="task-meta">
+                          {task.due_date && (
+                            <span className="task-due-date">
+                              Due{" "}
+                              {new Date(
+                                `${task.due_date}T00:00:00`
+                              ).toLocaleDateString()}
+                            </span>
+                          )}
+                          <span
+                            className={`priority-badge priority-${task.priority || "medium"}`}
+                          >
+                            {task.priority || "medium"} priority
+                          </span>
+                        </div>
                       </div>
 
                       <div className="task-actions">
